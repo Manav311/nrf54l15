@@ -1,0 +1,9 @@
+if BOARD_EMS_NRF52840
+
+config BOARD
+	default "ems_nrf52840"
+
+config BT_CTLR
+	default BT
+
+endif # BOARD_EMS_NRF52840

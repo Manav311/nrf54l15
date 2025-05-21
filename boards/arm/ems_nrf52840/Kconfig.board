@@ -1,0 +1,3 @@
+config BOARD_EMS_NRF52840
+	bool "EMS NRF52840"
+	depends on SOC_NRF52840_QIAA

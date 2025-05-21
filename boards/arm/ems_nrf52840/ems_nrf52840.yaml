@@ -1,0 +1,10 @@
+identifier: ems_nrf52840
+name: EMS NRF52840
+type: mcu
+arch: arm
+ram: 256
+flash: 1024
+toolchain:
+  - zephyr
+  - gnuarmemb
+  - xtools
