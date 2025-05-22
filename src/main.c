@@ -19,7 +19,7 @@ LOG_MODULE_REGISTER(MAIN, LOG_LEVEL_DBG);
 #define SLEEP_MSEC                            25U
 #define SLEEP_TIME_MS                         1000
 #define ADC_CHANNEL_1                         1
-#define LED_OUT_NODE1                         DT_ALIAS(led_out)
+
 #define GPIO_PIN                              NRF_GPIO_PIN_MAP(0, 5)
 #define GPIO_PIN1                             NRF_GPIO_PIN_MAP(0, 25)
 #define DEFAULT_SESSION_TIME_SECONDS          1200
@@ -60,7 +60,6 @@ K_MSGQ_DEFINE(main_msgq, sizeof(struct main_msg_data), 5, 4);
 K_TIMER_DEFINE(session_timer, session_timer_exp_cb, NULL); // Timer for the session timer callback
 K_TIMER_DEFINE(adjust_pwm_timer, adjust_pwm_timer_exp_cb, NULL);
 
-struct gpio_dt_spec led_spec1 = GPIO_DT_SPEC_GET(LED_OUT_NODE1, gpios);
 
 // Struct for storing the EMS parameters like on-time, off-time, duty cycle, etc.
 struct ems_def current_ems = {

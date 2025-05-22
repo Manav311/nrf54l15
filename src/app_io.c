@@ -23,9 +23,12 @@
 
 LOG_MODULE_REGISTER(APP_IO, LOG_LEVEL_DBG);
 
-#define LED_OUT_NODE                    DT_ALIAS(led_out)        // LED node
-#define SW0_NODE	                    DT_ALIAS(sw0)           // Button node
-#define RED_LED_OUT_NODE                DT_ALIAS(red_led)        // red LED node
+#define BLUE_LED_OUT_NODE                   DT_ALIAS(blue_led)       // blue LED node
+#define GREEN_LED_OUT_NODE                  DT_ALIAS(green_led) 
+#define RED_LED_OUT_NODE                    DT_ALIAS(red_led)        // red LED node
+
+
+#define SW0_NODE	                    DT_ALIAS(on_button)           // Button node
 
 #define GPIO_PIN                        NRF_GPIO_PIN_MAP(0, 5)
 #define GPIO_PIN1                       NRF_GPIO_PIN_MAP(0, 25)
@@ -56,6 +59,11 @@ LOG_MODULE_REGISTER(APP_IO, LOG_LEVEL_DBG);
 
 
 struct gpio_dt_spec red_led_spec = GPIO_DT_SPEC_GET(RED_LED_OUT_NODE, gpios); // Red LED spec
+
+struct gpio_dt_spec green_led_spec = GPIO_DT_SPEC_GET(GREEN_LED_OUT_NODE, gpios); // Red LED spec
+
+struct gpio_dt_spec blue_led_spec = GPIO_DT_SPEC_GET(BLUE_LED_OUT_NODE, gpios); // Red LED spec
+
 
 extern struct k_msgq ble_msgq;  // BLE message queue
 
@@ -121,7 +129,9 @@ int charging_threshold;  // Charging threshold will be dynamically set
 uint8_t charger_state = 0;   // Initialize the charger state
 uint8_t battery_low = 0; 
 uint16_t buf;
-k_tid_t my_tid;
+k_tid_t my_tid1;
+k_tid_t my_tid2;
+k_tid_t my_tid3;
 uint8_t sleep_flag =0;
 static int64_t start_time;
 const k_tid_t red_led_thread; // LED thread
@@ -468,16 +478,6 @@ void stop_green_led_thread(void) {
     }
 }
 
-// Red LED main function
-static void red_led_main() {
-    while (1) {
-        gpio_pin_set_raw(red_led_spec.port, red_led_spec.pin, 0);
-        k_sleep(K_MSEC(800));
-
-        gpio_pin_set_raw(red_led_spec.port, red_led_spec.pin, 1);
-        k_sleep(K_MSEC(800));
-    }
-}
 
 void stop_red_led_thread(void){
 
@@ -491,7 +491,26 @@ void start_red_led_thread(void){
 
 }
 
+static void red_led_main() {
+    while (1) {
+    int ret = gpio_pin_toggle_dt(&red_led_spec);
+        k_sleep(K_MSEC(1000));
+    }
+}
 
+static void green_led_main() {
+    while (1) {
+      int  ret = gpio_pin_toggle_dt(&green_led_spec);
+        k_sleep(K_MSEC(1000));
+    }
+}
+
+static void blue_led_main() {
+    while (1) {
+    int ret = gpio_pin_toggle_dt(&blue_led_spec);
+        k_sleep(K_MSEC(1000));
+    }
+}
 
 int input_main() {
     
@@ -502,7 +521,11 @@ int input_main() {
     bool pattern_changed = false; // Flag to track if LED pattern is already changed
     const int hold_duration_threshold = 2000; // 2 seconds in milliseconds
 
-    create_thread_from_function();
+    create_red_thread_from_function();
+    
+    create_green_thread_from_function();
+
+    create_blue_thread_from_function();
 
     // Initialize the timer
     k_timer_init(&my_timer, timer_expiry_function, NULL);
@@ -541,27 +564,47 @@ int input_main() {
     initial_value = batt_val_mv;
     printk("Initial value: %d\n", initial_value);
 
-    // Initialize mutexes
-    k_mutex_init(&blue_period_mutex);
-    k_mutex_init(&green_period_mutex);
+   	if (!gpio_is_ready_dt(&red_led_spec)) {
+		return 0;
+	}
 
-    start_blue_led_thread(1000000);
-    start_green_led_thread(1000000);
+	ret = gpio_pin_configure_dt(&red_led_spec, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0) {
+		return 0;
+	}
+
+    	if (!gpio_is_ready_dt(&green_led_spec)) {
+		return 0;
+	}
+
+	ret = gpio_pin_configure_dt(&green_led_spec, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0) {
+		return 0;
+	}
+
+    	if (!gpio_is_ready_dt(&blue_led_spec)) {
+		return 0;
+	}
+
+	ret = gpio_pin_configure_dt(&blue_led_spec, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0) {
+		return 0;
+	}
 
     // Simulate some other operations
     k_sleep(K_SECONDS(1));
-
+    
     // Main loop
     while (1) {
         // Check battery value
         
         if (batt_val_mv < 1600 ) {
 
+            
             if(battery_low == 0){
 
-            k_thread_start(my_tid);
-            stop_blue_led_thread();
-            stop_green_led_thread();
+            
+            
             battery_low=1;
 
             }
@@ -573,6 +616,7 @@ int input_main() {
 
         // Button press handling
         if (val == 1) {
+
          
             btn_hold_counter++;  // Increment counter every ms while the button is held
 
@@ -641,13 +685,32 @@ int input_main() {
 
     return 0;  // Return success
 }
-void create_thread_from_function(void) {
-    my_tid = k_thread_create(&my_thread_data_1, dyn_thread_stack_1,
+
+
+K_THREAD_DEFINE(input_thread, 1024, input_main, NULL, NULL, NULL, 2, K_ESSENTIAL, 0);
+
+K_THREAD_DEFINE(batt_thread, 512, batt_read_update, NULL, NULL, NULL, 3, 0, 0);
+
+void create_red_thread_from_function(void) {
+    my_tid1 = k_thread_create(&my_thread_data_1, dyn_thread_stack_1,
                              K_THREAD_STACK_SIZEOF(dyn_thread_stack_1),
                              red_led_main,
                              NULL, NULL, NULL,
-                             THREAD_PRIORITY, 0, K_FOREVER);
+                             4, 0, K_FOREVER);
 }
-K_THREAD_DEFINE(input_thread, 1024, input_main, NULL, NULL, NULL, 2, K_ESSENTIAL, 0);
-K_THREAD_DEFINE(batt_thread, 512, batt_read_update, NULL, NULL, NULL, 3, 0, 0);
-//K_THREAD_DEFINE(charge_thread, 512, batt_monitor_timer, NULL, NULL, NULL, 4, 0, 0);
+
+void create_green_thread_from_function(void) {
+    my_tid2 = k_thread_create(&my_thread_data_1, dyn_thread_stack_1,
+                             K_THREAD_STACK_SIZEOF(dyn_thread_stack_1),
+                             green_led_main,
+                             NULL, NULL, NULL,
+                             5, 0, K_FOREVER);
+}
+
+void create_blue_thread_from_function(void) {
+    my_tid3 = k_thread_create(&my_thread_data_1, dyn_thread_stack_1,
+                             K_THREAD_STACK_SIZEOF(dyn_thread_stack_1),
+                             blue_led_main,
+                             NULL, NULL, NULL,
+                             6, 0, K_FOREVER);
+}

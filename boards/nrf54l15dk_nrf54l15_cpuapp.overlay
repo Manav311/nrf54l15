@@ -11,14 +11,14 @@
         chan0_gpio: chan0_gpio{
             gpios = < &gpio0 0 GPIO_ACTIVE_HIGH >;
         };
-        led_output: led_output{
-            gpios = <&gpio1 11 GPIO_PULL_DOWN>;
+        blue_led_output: blue_led_output{
+            gpios = <&gpio1 10 GPIO_PULL_DOWN>;
         };
         red_led_output: red_led_output{
-            gpios = <&gpio1 15 GPIO_PULL_DOWN>;
+            gpios = <&gpio1 14 GPIO_PULL_DOWN>;
         };
-        power_ctrl: power_ctrl{
-            gpios = < &gpio1 13 GPIO_ACTIVE_HIGH >;
+        green_led_output: green_led_output{
+            gpios = < &gpio2 7 GPIO_ACTIVE_HIGH >;
         };
     };
 
@@ -36,9 +36,10 @@
 
     aliases{
         ems-chan0-gpio = &chan0_gpio;
-        led-out = &led_output;
+        blue-led = &blue_led_output;
         red-led = &red_led_output;
-        sw0 = &button0;
+        green-led = &blue_led_output;
+        on-button = &button0;
     };
 };
 

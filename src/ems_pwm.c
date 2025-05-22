@@ -102,7 +102,7 @@ nrf_pwm_sequence_t chan1_sequence = {
 
 // Channels 2 and 3 PWM instance (channel 2 and 3 are independent channels on the PWM instance)
 const nrfx_pwm_t chan23_pwm_inst = CHAN23_PWM_INST;
-nrf_pwm_values_individual_t chan23_pwm_seq_ind_values = {0, 0, 0, 0};
+nrf_pwm_values_individual_t chan23_pwm_seq_ind_values ;
 
 nrf_pwm_values_t chan23_values = {.p_individual = &chan23_pwm_seq_ind_values};
 nrf_pwm_sequence_t chan23_sequence = {
