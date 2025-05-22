@@ -140,7 +140,12 @@ struct ems_def ems_session_data = {0}; // EMS session data
 uint8_t batt_percent; // Battery percentage
 extern k_tid_t led_thread; // LED thread
 uint8_t disconnect_reason = 0; // Disconnect reason
-extern k_tid_t my_tid;
+extern k_tid_t my_tid1;
+extern k_tid_t my_tid2;
+
+extern k_tid_t my_tid3;
+
+
 static bool security_set = false;  // Flag to check if security is set
 bool pairing_on = true;
 
@@ -353,13 +358,13 @@ static void ble_connected(struct bt_conn *conn, uint8_t err) {
 
     if(battery_low == 0){
     if(is_pwm_modes_enabled){
-    start_green_led_thread(10000);
+   // start_green_led_thread(10000);
     }
     else{
-    start_green_led_thread(1000000);
+    //start_green_led_thread(1000000);
     }
-    stop_blue_led_thread();
-    stop_red_led_thread();
+    k_thread_suspend(my_tid3);
+    
     }
 
     struct main_msg_data conn_msg = {.src = MAIN_MSG_DATA_SRC_BLE, .data.ble.id = BLE_MSG_ID_CONNECTED};
@@ -380,12 +385,6 @@ static void ble_disconnected(struct bt_conn *conn, uint8_t reason) {
     // Start advertising with Accept List
     k_work_submit(&advertise_acceptlist_work);
 
-    stop_blue_led_thread();// Rapid blinking twice
-    stop_red_led_thread();
-    stop_green_led_thread();
-    start_blue_led_thread(1000000);
-    start_green_led_thread(1000000);
-    start_red_led_thread();
 
     struct main_msg_data conn_msg = {.src = MAIN_MSG_DATA_SRC_BLE, .data.ble.id = BLE_MSG_ID_DISCONNECTED};
     update_main_msgq(&conn_msg);

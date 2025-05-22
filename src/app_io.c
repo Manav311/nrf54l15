@@ -112,11 +112,6 @@ static struct k_mutex green_period_mutex;
 #define SOLID_BRIGHT_PERIOD 10000 // Set period for solid bright     // Maximum duty cycle for full brightness
 #define ZERO_DUTY_CYCLE 0           // Duty cycle for turning off the LED
 
-// Function prototypes
-void start_blue_led_thread(uint32_t period);
-void stop_blue_led_thread(void);
-void start_green_led_thread(uint32_t period);
-void stop_green_led_thread(void);
 
 uint32_t btn_hold_counter = 0;
 uint32_t ems_on = 0;
@@ -306,190 +301,6 @@ static void batt_read_update() // Battery read update
     }
 }
 
-// blue LED blink function
-int blue_led_blink(uint32_t period) {
-    
-    int err;
-    uint32_t duty_cycle_ns__blue = MIN_DUTY_CYCLE;
-    uint8_t dir_blue = 1; // Direction: 1 for increasing, 0 for decreasing
-
-  
-
-    while (1) {
-  
-    
-        if (err) {
-            LOG_ERR("pwm_set_dt returned %d", err);
-            return err;
-        }
-
-        // Adjust the duty cycle to create the breathing effect
-        if (dir_blue) {
-    
-            duty_cycle_ns__blue += STEP_SIZE;
-    
-            if (duty_cycle_ns__blue >= MAX_DUTY_CYCLE) {
-                duty_cycle_ns__blue = MAX_DUTY_CYCLE;
-                dir_blue = 0; // Switch to decreasing intensity
-            }
-        } 
-        
-        else {
-            duty_cycle_ns__blue -= STEP_SIZE;
-            if (duty_cycle_ns__blue <= MIN_DUTY_CYCLE) {
-                duty_cycle_ns__blue = MIN_DUTY_CYCLE;
-                dir_blue = 1; // Switch to increasing intensity
-            }
-        }
-
-        k_msleep(STEP_DELAY_MS);
-    }
-
-    return 0;
-}
-
-// green LED blink function
-int green_led_blink(uint32_t period) {
-    int err;
-    uint32_t duty_cycle_ns__green = MIN_DUTY_CYCLE;
-    uint8_t dir_green = 1; // Direction: 1 for increasing, 0 for decreasing
-
-    while (1) {
-        
-        
-        if (err) {
-            LOG_ERR("pwm_set_dt returned %d", err);
-            return err;
-        }
-        // Adjust the duty cycle to create the breathing effect
-        if (dir_green) {
-            duty_cycle_ns__green += STEP_SIZE;
-            if (duty_cycle_ns__green >= MAX_DUTY_CYCLE) {
-                duty_cycle_ns__green = MAX_DUTY_CYCLE;
-                dir_green = 0; // Switch to decreasing intensity
-            }
-        } else {
-            duty_cycle_ns__green -= STEP_SIZE;
-            if (duty_cycle_ns__green <= MIN_DUTY_CYCLE) {
-                duty_cycle_ns__green = MIN_DUTY_CYCLE;
-                dir_green = 1; // Switch to increasing intensity
-            }
-        }
-
-        k_msleep(STEP_DELAY_MS);
-    }
-
-    return 0;
-}
-
-// blue LED thread entry function
-void blue_led_thread_entry(void *arg1, void *arg2, void *arg3) {
-    
-    uint32_t local_period;
-
-    while (1) {
-        // Lock mutex and get the current period
-        k_mutex_lock(&blue_period_mutex, K_FOREVER);
-        local_period = pwm_period_blue; // Copy the period value
-        k_mutex_unlock(&blue_period_mutex);
-
-        // Run the blue LED blink function with the current period
-        int err = blue_led_blink(local_period);
-
-        if (err) {
-            LOG_ERR("blue LED blink error: %d", err);
-            break; // Exit the thread on error
-        }
-    }
-}
-
-// green LED thread entry function
-void green_led_thread_entry(void *arg1, void *arg2, void *arg3) {
-
-    uint32_t local_period;
-
-    while (1) {
-        // Lock mutex and get the current period
-        k_mutex_lock(&green_period_mutex, K_FOREVER);
-        local_period = pwm_period_green; // Copy the period value
-        k_mutex_unlock(&green_period_mutex);
-
-        // Run the green LED blink function with the current period
-        int err = green_led_blink(local_period);
-        
-        if (err) {
-            LOG_ERR("green LED blink error: %d", err);
-            break; // Exit the thread on error
-        }
-    }
-}
-
-// Function to start the blue LED thread
-void start_blue_led_thread(uint32_t period) {
-    
-    k_mutex_lock(&blue_period_mutex, K_FOREVER);
-    pwm_period_blue = period;
-    k_mutex_unlock(&blue_period_mutex);
-
-    if (!blue_led_thread_running) {
-        k_thread_create(&blue_led_thread_data, blue_led_stack_area,
-                        K_THREAD_STACK_SIZEOF(blue_led_stack_area),
-                        blue_led_thread_entry,
-                        NULL, NULL, NULL,
-                        LED_BLINK_THREAD_PRIORITY, 0, K_NO_WAIT);
-        blue_led_thread_running = true;
-        printk("blue LED blink thread started with period: %d\n", period);
-    }
-}
-
-// Function to stop the blue LED thread
-void stop_blue_led_thread(void) {
-    if (blue_led_thread_running) {
-        k_thread_abort(&blue_led_thread_data);
-        blue_led_thread_running = false;
-        printk("blue LED blink thread stopped.\n");
-    }
-}
-
-// Function to start the green LED thread
-void start_green_led_thread(uint32_t period) {
-    
-    k_mutex_lock(&green_period_mutex, K_FOREVER);
-    pwm_period_green = period;
-    k_mutex_unlock(&green_period_mutex);
-
-    if (!green_led_thread_running) {
-        k_thread_create(&green_led_thread_data, green_led_stack_area,
-                        K_THREAD_STACK_SIZEOF(green_led_stack_area),
-                        green_led_thread_entry,
-                        NULL, NULL, NULL,
-                        LED_BLINK_THREAD_PRIORITY, 0, K_NO_WAIT);
-        green_led_thread_running = true;
-        printk("green LED blink thread started with period: %d\n", period);
-    }
-}
-
-// Function to stop the green LED thread
-void stop_green_led_thread(void) {
-    if (green_led_thread_running) {
-        k_thread_abort(&green_led_thread_data);
-        green_led_thread_running = false;
-        printk("green LED blink thread stopped.\n");
-    }
-}
-
-
-void stop_red_led_thread(void){
-
-    gpio_pin_set_raw(red_led_spec.port, red_led_spec.pin, 1);
-
-}
-
-void start_red_led_thread(void){
-
-    gpio_pin_set_raw(red_led_spec.port, red_led_spec.pin, 0);
-
-}
 
 static void red_led_main() {
     while (1) {
@@ -603,7 +414,9 @@ int input_main() {
             
             if(battery_low == 0){
 
-            
+            k_thread_suspend(my_tid2);
+            k_thread_suspend(my_tid3);
+            k_thread_start(my_tid1);
             
             battery_low=1;
 
@@ -624,10 +437,9 @@ int input_main() {
             if (btn_hold_counter >= hold_duration_threshold && !pattern_changed && pairing_on) {
 
                 if(battery_low == 0){
-                stop_blue_led_thread();// Rapid blinking twice
-                stop_red_led_thread();
-                stop_green_led_thread();
-                start_blue_led_thread(10000);  // Change to blinking
+
+                    k_thread_start(my_tid3);
+
                 }
                 
                 LOG_INF("Button held for 3 seconds, changed to blinking");
@@ -671,9 +483,9 @@ int input_main() {
         // Handle longer button hold (e.g., reboot) if needed
         if (btn_hold_counter > 5000) {
             
-            stop_blue_led_thread();
-            stop_green_led_thread();
-            stop_red_led_thread();
+            // stop_blue_led_thread();
+            // stop_green_led_thread();
+            // stop_red_led_thread();
 
             LOG_INF("Button held for more than 9 seconds, rebooting");
 

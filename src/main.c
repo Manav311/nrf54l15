@@ -102,8 +102,8 @@ static void session_timer_exp_cb(struct k_timer *timer) {
             (current_ems.status.session.current_session_len > current_ems.status.session.target_session_len)) {
             current_ems.status.control = 0;
             LOG_DBG("End EMS Session");
-            stop_green_led_thread();
-            start_green_led_thread(1000000);
+           // stop_green_led_thread();
+            //start_green_led_thread(1000000);
             ems_session_running = false;
             ems_pwm_toggle(0);
         }
@@ -173,8 +173,8 @@ static void ems_control_cmd_handle(uint8_t control) {
         current_ems.status.session.current_session_len = 0;
         current_ems.status.control = 1;
         ems_pwm_toggle(1);
-        stop_green_led_thread();
-        start_green_led_thread(10000);
+        //stop_green_led_thread();
+        //start_green_led_thread(10000);
         LOG_INF("EMS enabled");
         current_ems.status.session.target_session_len = DEFAULT_SESSION_TIME_SECONDS; // Turn off EMS automatically after 20 minutes
         ems_session_running = true;
@@ -184,8 +184,8 @@ static void ems_control_cmd_handle(uint8_t control) {
         current_ems.status.control = 0;
         LOG_INF("EMS disabled");
         ems_pwm_toggle(0);
-        stop_green_led_thread();
-        start_green_led_thread(1000000);
+        //stop_green_led_thread();
+        //start_green_led_thread(1000000);
         ems_session_running = false;
     }
 }
