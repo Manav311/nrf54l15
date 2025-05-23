@@ -10,16 +10,25 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/reboot.h>
 #include <hal/nrf_gpio.h>
-#include <zephyr/pm/device.h>
-#include <zephyr/pm/pm.h>
-#include <zephyr/pm/policy.h>
-#include <zephyr/pm/device_runtime.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gap.h>
 #include <zephyr/bluetooth/hci.h>
+
+#include <inttypes.h>
+#include <stdio.h>
+
+#include <zephyr/device.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/hwinfo.h>
+#include <zephyr/drivers/comparator.h>
+#include <zephyr/kernel.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/sys/poweroff.h>
+#include <zephyr/sys/util.h>
+#include <zephyr/drivers/timer/nrf_grtc_timer.h>
 
 LOG_MODULE_REGISTER(APP_IO, LOG_LEVEL_DBG);
 
@@ -48,6 +57,14 @@ LOG_MODULE_REGISTER(APP_IO, LOG_LEVEL_DBG);
 #define SLEEP_DURATION_MS               5000 // Duration of sleep in milliseconds
 
 #define TIME_WINDOW_MS     10000  // 10-second time window
+
+
+
+#define DEEP_SLEEP_TIME_S 2
+
+
+static const struct gpio_dt_spec sw0 = GPIO_DT_SPEC_GET(DT_ALIAS(off_button), gpios);
+
 
 #if !DT_NODE_HAS_STATUS(SW0_NODE, okay)
 #error "Unsupported board: sw0 devicetree alias is not defined"
@@ -332,6 +349,43 @@ int input_main() {
     bool pattern_changed = false; // Flag to track if LED pattern is already changed
     const int hold_duration_threshold = 2000; // 2 seconds in milliseconds
 
+    int rc;
+	const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+
+	if (!device_is_ready(cons)) {
+		LOG_ERR("%s: device not ready.\n", cons->name);
+		return 0;
+	}
+
+	LOG_ERR("\n%s system off demo\n", CONFIG_BOARD);
+
+
+	/* configure sw0 as input, interrupt as level active to allow wake-up */
+	rc = gpio_pin_configure_dt(&sw0, GPIO_INPUT);
+	if (rc < 0) {
+		LOG_ERR("Could not configure sw0 GPIO (%d)\n", rc);
+		return 0;
+	}
+
+	rc = gpio_pin_interrupt_configure_dt(&sw0, GPIO_INT_LEVEL_ACTIVE);
+	if (rc < 0) {
+		LOG_ERR("Could not configure sw0 GPIO interrupt (%d)\n", rc);
+		return 0;
+	}
+
+	LOG_ERR("Entering system off; press sw0 to restart\n");
+
+	rc = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+	if (rc < 0) {
+		LOG_ERR("Could not suspend console (%d)\n", rc);
+		return 0;
+	}
+
+
+	hwinfo_clear_reset_cause();
+	sys_poweroff();
+
+
     create_red_thread_from_function();
     
     create_green_thread_from_function();
@@ -359,12 +413,21 @@ int input_main() {
         return 0;
     }
 
-    ret = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+    ret = gpio_pin_interrupt_configure_dt(&sw0, GPIO_INT_EDGE_TO_ACTIVE);
+
     
     if (ret) {
         LOG_DBG("Error %d: failed to configure interrupt on %s pin %d\n", ret, button.port->name, button.pin);
         return 0;
     }
+
+    //     while (1) {
+    //     // Or, better: wait for user input/event before sleeping
+    //     k_sleep(K_SECONDS(100));  // Keep alive for 10 seconds (or handle app logic)
+    //     printf("Going to sleep now\n");
+    //     break;
+    // }
+
 
     // Button callback
     gpio_init_callback(&button_cb_data, button_pressed, BIT(button.pin));
@@ -431,46 +494,46 @@ int input_main() {
         if (val == 1) {
 
          
-            btn_hold_counter++;  // Increment counter every ms while the button is held
+            // btn_hold_counter++;  // Increment counter every ms while the button is held
 
-            // If button has been held for more than 3 seconds, change the LED pattern
-            if (btn_hold_counter >= hold_duration_threshold && !pattern_changed && pairing_on) {
+            // // If button has been held for more than 3 seconds, change the LED pattern
+            // if (btn_hold_counter >= hold_duration_threshold && !pattern_changed && pairing_on) {
 
-                if(battery_low == 0){
+            //     if(battery_low == 0){
 
-                    k_thread_start(my_tid3);
+            //         k_thread_start(my_tid3);
 
-                }
+            //     }
                 
-                LOG_INF("Button held for 3 seconds, changed to blinking");
+            //     LOG_INF("Button held for 3 seconds, changed to blinking");
 
-                pattern_changed = true; // Set flag to indicate the pattern has changed
+            //     pattern_changed = true; // Set flag to indicate the pattern has changed
                 
-                if ((err = bt_le_adv_stop()) == 0) {
-                LOG_INF("Advertising stopped successfully");
-            }
+            //     if ((err = bt_le_adv_stop()) == 0) {
+            //     LOG_INF("Advertising stopped successfully");
+            // }
 
-            else {
-                LOG_INF("Cannot stop advertising, err = %d", err);
-            }
+            // else {
+            //     LOG_INF("Cannot stop advertising, err = %d", err);
+            // }
 
-            if ((err = bt_le_filter_accept_list_clear()) == 0) {
-                LOG_INF("Accept list cleared successfully");
+            // if ((err = bt_le_filter_accept_list_clear()) == 0) {
+            //     LOG_INF("Accept list cleared successfully");
 
-                ble_new_adv();
+            //     ble_new_adv();
 
-                if ((err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, NULL, 0, NULL, 0)) == 0) {
-                    LOG_INF("Advertising in pairing mode started");
-                } else {
-                    LOG_INF("Cannot start advertising, err = %d", err);
-                }
-            }
+            //     if ((err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, NULL, 0, NULL, 0)) == 0) {
+            //         LOG_INF("Advertising in pairing mode started");
+            //     } else {
+            //         LOG_INF("Cannot start advertising, err = %d", err);
+            //     }
+            // }
 
-            else {
-                LOG_INF("Cannot clear accept list, err = %d", err);
-            }
+            // else {
+            //     LOG_INF("Cannot clear accept list, err = %d", err);
+            // }
 
-            }
+            // }
 
         }
         
