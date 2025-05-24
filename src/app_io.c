@@ -375,15 +375,7 @@ int input_main() {
 
 	LOG_ERR("Entering system off; press sw0 to restart\n");
 
-	rc = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
-	if (rc < 0) {
-		LOG_ERR("Could not suspend console (%d)\n", rc);
-		return 0;
-	}
 
-
-	hwinfo_clear_reset_cause();
-	sys_poweroff();
 
 
     create_red_thread_from_function();
@@ -467,6 +459,8 @@ int input_main() {
 
     // Simulate some other operations
     k_sleep(K_SECONDS(1));
+
+
     
     // Main loop
     while (1) {
@@ -494,6 +488,16 @@ int input_main() {
         if (val == 1) {
 
          
+
+    rc = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+	if (rc < 0) {
+		LOG_ERR("Could not suspend console (%d)\n", rc);
+		return 0;
+	}
+
+
+	hwinfo_clear_reset_cause();
+	sys_poweroff();
             // btn_hold_counter++;  // Increment counter every ms while the button is held
 
             // // If button has been held for more than 3 seconds, change the LED pattern

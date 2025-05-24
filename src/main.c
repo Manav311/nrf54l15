@@ -235,7 +235,6 @@ int main(void) {
 
     k_timer_start(&session_timer, K_SECONDS(1), K_SECONDS(1)); // Starts the timer
 
-    ems_control_cmd_handle(01);
 
     while (1) {
         
